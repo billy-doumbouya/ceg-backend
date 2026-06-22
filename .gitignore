@@ -1,0 +1,83 @@
+# ---------------------------------------------------------------------------
+# DEPENDANCES (Ne jamais versionner car elles sont lourdes et recréées via npm)
+# ---------------------------------------------------------------------------
+node_modules/
+jspm_packages/
+web_modules/
+
+# ---------------------------------------------------------------------------
+# SECURITE & CONFIGURATION PRIVEE (Contiennent vos mots de passe et clés API)
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# LOGS & RAPPORTS DE CRASH
+# ---------------------------------------------------------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---------------------------------------------------------------------------
+# BUILD & GENERATION DE CODE (Fichiers compilés, ex: TypeScript -> JavaScript)
+# ---------------------------------------------------------------------------
+dist/
+build/
+lib/
+.node_repl_history
+.nuxt
+.next
+.serverless
+out/
+
+# ---------------------------------------------------------------------------
+# DOSSIERS DES EDITEURS DE CODE & SYSTEME (Spécifiques à votre machine)
+# ---------------------------------------------------------------------------
+# VS Code
+.vscode/
+!.vscode/extensions.json # Optionnel : garde la liste des extensions recommandées
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Système d'exploitation
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# TESTS, COUVERTURE & CACHES
+# ---------------------------------------------------------------------------
+coverage/
+.nyc_output
+.eslintcache
+.stylelintcache
+.prettiercache
+.parcel-cache
+.cache/
+
+# ---------------------------------------------------------------------------
+# FICHIERS TEMPORAIRES / DOSSIERS D'UPLOADS (Optionnel)
+# ---------------------------------------------------------------------------
+# Décommentez la ligne ci-dessous si votre API stocke des uploads locaux à ne pas envoyer sur Git
+# uploads/
+env
+.env 
+.env.local
+.env.development.local
+.env.test.local
+.env/
+.env.production.local
