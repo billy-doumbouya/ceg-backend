@@ -5,8 +5,6 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 
-const connectDB = require("../config/db");
-
 const Timeline = require("../models/Timeline");
 const Testimonial = require("../models/Testimonial");
 const Statistic = require("../models/Statistic");
@@ -19,8 +17,14 @@ const { timeline, testimonials, statistics, partners, news, domains } = require(
 const RESET = process.argv.includes("--reset");
 
 async function seed() {
-  // Réutilise la même connexion (même dbName "ceg_db", même config) que le serveur principal
-  await connectDB();
+  const uri = process.env.MONGO_URI;
+  if (!uri) {
+    console.error("❌ MONGO_URI introuvable dans .env");
+    process.exit(1);
+  }
+
+  await mongoose.connect(uri);
+  console.log("✅ Connecté à MongoDB");
 
   const collections = [
     { name: "Timeline", model: Timeline, data: timeline },
