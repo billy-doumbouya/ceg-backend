@@ -13,6 +13,7 @@ function extractPublicIdFromUrl(url) {
   const relevantParts = parts.slice(uploadIndex + 2); // ignore version
   return relevantParts.join("/").replace(/\.[^/.]+$/, "");
 }
+
 /** GET /api/gallery/categories */
 const getCategories = asyncHandler(async (req, res) => {
   const categories = await GalleryCategory.find().sort({ order: 1, name: 1 });
@@ -152,10 +153,68 @@ const uploadImages = asyncHandler(async (req, res) => {
     }),
   );
 
+  // Recalcul fiable du compteur — au lieu de dépendre des hooks du modèle
+  await GalleryCategory.recountImages(category);
+
   res.status(201).json({
     success: true,
     message: `${images.length} image(s) uploadée(s) avec succès`,
     data: images,
+  });
+});
+
+/** PUT /api/gallery/images/:id — Admin (modifier légende, catégorie, ordre, statut, ou remplacer la photo) */
+const updateGalleryImage = asyncHandler(async (req, res) => {
+  const image = await GalleryImage.findById(req.params.id);
+  if (!image)
+    return res
+      .status(404)
+      .json({ success: false, message: "Image non trouvée" });
+
+  const { category, caption, takenAt, order, isPublished } = req.body;
+  const oldCategoryId = image.category.toString();
+
+  // Si on change de catégorie, vérifier qu'elle existe
+  if (category !== undefined && category !== oldCategoryId) {
+    const cat = await GalleryCategory.findById(category);
+    if (!cat)
+      return res
+        .status(404)
+        .json({ success: false, message: "Catégorie non trouvée" });
+    image.category = category;
+  }
+
+  // Remplacement de la photo elle-même (nouveau fichier uploadé)
+  if (req.file) {
+    if (image.image?.publicId) await deleteImage(image.image.publicId);
+    const publicId = req.file.filename || extractPublicIdFromUrl(req.file.path);
+    image.image = { url: req.file.path, publicId };
+  }
+
+  if (caption !== undefined) image.caption = caption;
+  if (takenAt !== undefined) image.takenAt = takenAt;
+  if (order !== undefined) image.order = Number(order) || 0;
+  if (isPublished !== undefined) {
+    image.isPublished = isPublished === "true" || isPublished === true;
+  }
+
+  await image.save();
+
+  // Recalcul du compteur si la catégorie a changé (ancienne ET nouvelle)
+  if (category !== undefined && category !== oldCategoryId) {
+    await GalleryCategory.recountImages(oldCategoryId);
+    await GalleryCategory.recountImages(image.category);
+  }
+
+  const populated = await GalleryImage.findById(image._id).populate(
+    "category",
+    "name slug",
+  );
+
+  res.json({
+    success: true,
+    message: "Image mise à jour avec succès",
+    data: populated,
   });
 });
 
@@ -167,8 +226,13 @@ const deleteGalleryImage = asyncHandler(async (req, res) => {
       .status(404)
       .json({ success: false, message: "Image non trouvée" });
 
+  const categoryId = image.category;
+
   if (image.image?.publicId) await deleteImage(image.image.publicId);
   await image.deleteOne();
+
+  // Recalcul fiable du compteur — c'est ce qui corrige ton bug du "1 au lieu de 0"
+  await GalleryCategory.recountImages(categoryId);
 
   res.json({ success: true, message: "Image supprimée avec succès" });
 });
@@ -181,5 +245,6 @@ module.exports = {
   getImages,
   getImagesAdmin,
   uploadImages,
+  updateGalleryImage,
   deleteGalleryImage,
 };

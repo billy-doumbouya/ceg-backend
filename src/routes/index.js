@@ -57,6 +57,7 @@ router.delete("/gallery/categories/:id", requireAuth, galleryCtrl.deleteCategory
 // Images
 router.get("/gallery/images", galleryCtrl.getImages);
 router.get("/gallery/images/admin", requireAuth, galleryCtrl.getImagesAdmin);
+router.put("/gallery/images/:id", requireAuth, uploaders.gallery.single("image"), galleryCtrl.updateGalleryImage);
 router.post("/gallery/images", requireAuth, uploaders.gallery.array("images", 50), galleryCtrl.uploadImages);
 router.delete("/gallery/images/:id", requireAuth, galleryCtrl.deleteGalleryImage);
 

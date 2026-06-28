@@ -6,7 +6,11 @@ const { deleteImage, extractPublicId } = require("../config/cloudinary");
 const parseArray = (value) => {
   if (!value) return [];
   if (Array.isArray(value)) return value;
-  try { return JSON.parse(value); } catch { return [value]; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return [value];
+  }
 };
 
 /** GET /api/news — Public */
@@ -25,7 +29,12 @@ const getAll = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: news,
-    pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) },
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      pages: Math.ceil(total / limit),
+    },
   });
 });
 
@@ -38,16 +47,34 @@ const getAllAdmin = asyncHandler(async (req, res) => {
 /** GET /api/news/:slug */
 const getOne = asyncHandler(async (req, res) => {
   const article = await News.findOne({ slug: req.params.slug });
-  if (!article) return res.status(404).json({ success: false, message: "Article non trouvé" });
+  if (!article)
+    return res
+      .status(404)
+      .json({ success: false, message: "Article non trouvé" });
   res.json({ success: true, data: article });
 });
 
 /** POST /api/news — Admin */
 const create = asyncHandler(async (req, res) => {
-  const { title, excerpt, content, date, category, author, tags, featured, isPublished } = req.body;
+  const {
+    title,
+    excerpt,
+    content,
+    date,
+    category,
+    author,
+    tags,
+    featured,
+    isPublished,
+  } = req.body;
 
   const articleData = {
-    title, excerpt, content, date, category, author,
+    title,
+    excerpt,
+    content,
+    date,
+    category,
+    author,
     tags: parseArray(tags),
     featured: featured === "true" || featured === true,
     isPublished: isPublished !== "false" && isPublished !== false,
@@ -61,15 +88,34 @@ const create = asyncHandler(async (req, res) => {
   }
 
   const article = await News.create(articleData);
-  res.status(201).json({ success: true, message: "Article créé avec succès", data: article });
+  res
+    .status(201)
+    .json({
+      success: true,
+      message: "Article créé avec succès",
+      data: article,
+    });
 });
 
 /** PUT /api/news/:id — Admin */
 const update = asyncHandler(async (req, res) => {
   const article = await News.findById(req.params.id);
-  if (!article) return res.status(404).json({ success: false, message: "Article non trouvé" });
+  if (!article)
+    return res
+      .status(404)
+      .json({ success: false, message: "Article non trouvé" });
 
-  const { title, excerpt, content, date, category, author, tags, featured, isPublished } = req.body;
+  const {
+    title,
+    excerpt,
+    content,
+    date,
+    category,
+    author,
+    tags,
+    featured,
+    isPublished,
+  } = req.body;
 
   if (req.file) {
     if (article.image?.publicId) await deleteImage(article.image.publicId);
@@ -86,8 +132,10 @@ const update = asyncHandler(async (req, res) => {
   if (category !== undefined) article.category = category;
   if (author !== undefined) article.author = author;
   if (tags !== undefined) article.tags = parseArray(tags);
-  if (featured !== undefined) article.featured = featured === "true" || featured === true;
-  if (isPublished !== undefined) article.isPublished = isPublished !== "false" && isPublished !== false;
+  if (featured !== undefined)
+    article.featured = featured === "true" || featured === true;
+  if (isPublished !== undefined)
+    article.isPublished = isPublished !== "false" && isPublished !== false;
 
   await article.save();
   res.json({ success: true, message: "Article mis à jour", data: article });
@@ -96,7 +144,10 @@ const update = asyncHandler(async (req, res) => {
 /** DELETE /api/news/:id — Admin */
 const remove = asyncHandler(async (req, res) => {
   const article = await News.findById(req.params.id);
-  if (!article) return res.status(404).json({ success: false, message: "Article non trouvé" });
+  if (!article)
+    return res
+      .status(404)
+      .json({ success: false, message: "Article non trouvé" });
   if (article.image?.publicId) await deleteImage(article.image.publicId);
   await article.deleteOne();
   res.json({ success: true, message: "Article supprimé avec succès" });

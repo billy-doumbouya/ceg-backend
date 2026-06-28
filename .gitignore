@@ -81,3 +81,4 @@ env
 .env.test.local
 .env/
 .env.production.local
+createAdmin.js

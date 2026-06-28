@@ -1,5 +1,6 @@
 // src/models/Partner.js
 const mongoose = require("mongoose");
+const slugify = require("slugify");
 
 const partnerSchema = new mongoose.Schema(
   {
@@ -7,6 +8,10 @@ const partnerSchema = new mongoose.Schema(
       type: String,
       required: [true, "Le nom est requis"],
       trim: true,
+    },
+    slug: {
+      type: String,
+      unique: true,
     },
     fullName: { type: String, trim: true },
     logo: {
@@ -24,7 +29,14 @@ const partnerSchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     isPublished: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+partnerSchema.pre("save", function (next) {
+  if (this.isModified("name") || !this.slug) {
+    this.slug = slugify(this.name, { lower: true, strict: true, locale: "fr" });
+  }
+  next();
+});
 
 module.exports = mongoose.model("Partner", partnerSchema);

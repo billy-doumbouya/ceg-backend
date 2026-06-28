@@ -38,6 +38,7 @@ const update = asyncHandler(async (req, res) => {
     return res
       .status(404)
       .json({ success: false, message: "Partenaire non trouvé" });
+
   if (req.file) {
     if (partner.logo?.publicId) await deleteImage(partner.logo.publicId);
     partner.logo = {
@@ -45,6 +46,7 @@ const update = asyncHandler(async (req, res) => {
       publicId: req.file.filename || extractPublicId(req.file.path),
     };
   }
+
   const fields = [
     "name",
     "fullName",
@@ -61,11 +63,16 @@ const update = asyncHandler(async (req, res) => {
   fields.forEach((f) => {
     if (req.body[f] !== undefined) partner[f] = req.body[f];
   });
+
   if (req.body.domains)
     partner.domains = Array.isArray(req.body.domains)
       ? req.body.domains
       : JSON.parse(req.body.domains);
+
   await partner.save();
+  // Le hook pre("save") du modèle régénère le slug automatiquement
+  // si "name" a changé — aucune logique supplémentaire requise ici.
+
   res.json({ success: true, message: "Partenaire mis à jour", data: partner });
 });
 

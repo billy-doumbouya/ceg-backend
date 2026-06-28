@@ -480,53 +480,34 @@ const news = [
 ];
 
 // ─── SEED FUNCTION ────────────────────────────────────────────────────────────
+// ─── SEED FUNCTION ────────────────────────────────────────────────────────────
+async function seedOne(label, model, data) {
+  try {
+    await model.deleteMany({});
+    const res = await model.insertMany(data);
+    console.log(`✅ ${label.padEnd(12)} : ${res.length} insérés`);
+    return res;
+  } catch (err) {
+    console.error(`❌ ${label.padEnd(12)} : ÉCHEC →`, err.message);
+    return [];
+  }
+}
+
 async function seed() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ Connecté à MongoDB");
+    console.log("✅ Connecté à MongoDB\n");
 
-    // Vider les collections
-    await Promise.all([
-      Domain.deleteMany({}),
-      Project.deleteMany({}),
-      Partner.deleteMany({}),
-      Testimonial.deleteMany({}),
-      Statistic.deleteMany({}),
-      Timeline.deleteMany({}),
-      News.deleteMany({}),
-    ]);
-    console.log("🗑️  Collections vidées");
+    await seedOne("Domains", Domain, domains);
+    await seedOne("Projects", Project, projects);
+    await seedOne("Partners", Partner, partners);
+    await seedOne("Testimonials", Testimonial, testimonials);
+    await seedOne("Statistics", Statistic, statistics);
+    await seedOne("Timeline", Timeline, timeline);
+    await seedOne("News", News, news);
 
-    // Insérer les données
-    const [
-      domainsRes,
-      projectsRes,
-      partnersRes,
-      testimonialsRes,
-      statisticsRes,
-      timelineRes,
-      newsRes,
-    ] = await Promise.all([
-      Domain.insertMany(domains),
-      Project.insertMany(projects),
-      Partner.insertMany(partners),
-      Testimonial.insertMany(testimonials),
-      Statistic.insertMany(statistics),
-      Timeline.insertMany(timeline),
-      News.insertMany(news),
-    ]);
-
-    console.log(`✅ Domains      : ${domainsRes.length} insérés`);
-    console.log(`✅ Projects     : ${projectsRes.length} insérés`);
-    console.log(`✅ Partners     : ${partnersRes.length} insérés`);
-    console.log(`✅ Testimonials : ${testimonialsRes.length} insérés`);
-    console.log(`✅ Statistics   : ${statisticsRes.length} insérés`);
-    console.log(`✅ Timeline     : ${timelineRes.length} insérés`);
-    console.log(`✅ News         : ${newsRes.length} insérés`);
-
-    console.log("\n🎉 Seed terminé avec succès !");
+    console.log("\n🎉 Seed terminé");
     console.log("⚠️  Les images (logos partenaires, images projets/news) doivent être uploadées manuellement depuis le dashboard admin.");
-
   } catch (err) {
     console.error("❌ Erreur seed :", err.message);
     process.exit(1);
@@ -537,3 +518,4 @@ async function seed() {
 }
 
 seed();
+

@@ -16,9 +16,12 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-cloudinary.api.ping()
-  .then(res => console.log("--- 🎉 CONNEXION CLOUDINARY VALIDE ! ---", res))
-  .catch(err => console.error("--- ❌ CLÉS CLOUDINARY INVALIDES ! ---", err.message));
+cloudinary.api
+  .ping()
+  .then((res) => console.log("--- 🎉 CONNEXION CLOUDINARY VALIDE ! ---", res))
+  .catch((err) =>
+    console.error("--- ❌ CLÉS CLOUDINARY INVALIDES ! ---", err.message),
+  );
 
 // 2. Définition du stockage en mémoire pour Multer
 const memoryStorage = multer.memoryStorage();
