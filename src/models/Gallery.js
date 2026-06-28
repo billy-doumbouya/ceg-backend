@@ -43,7 +43,7 @@ const galleryCategorySchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 galleryCategorySchema.pre("save", function (next) {
@@ -95,7 +95,7 @@ const galleryImageSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Mise à jour du compteur de la catégorie après ajout/suppression
@@ -121,7 +121,10 @@ galleryImageSchema.post("findOneAndDelete", async function (doc) {
 
 galleryImageSchema.index({ category: 1, order: 1 });
 
-const GalleryCategory = mongoose.model("GalleryCategory", galleryCategorySchema);
+const GalleryCategory = mongoose.model(
+  "GalleryCategory",
+  galleryCategorySchema,
+);
 const GalleryImage = mongoose.model("GalleryImage", galleryImageSchema);
 
 module.exports = { GalleryCategory, GalleryImage };
