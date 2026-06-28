@@ -48,6 +48,12 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+
+// Après app.use(express.urlencoded...)
+app.use((req, res, next) => {
+  res.setTimeout(120000); // 2 minutes
+  next();
+});
 // Logger HTTP
 app.use(morgan("dev", {
   stream: { write: (msg) => logger.http(msg.trim()) },

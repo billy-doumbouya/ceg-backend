@@ -1,83 +1,174 @@
 // src/config/cloudinary.js
-// Configuration Cloudinary pour upload et optimisation des images
-
 const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
 
-// Configuration du SDK Cloudinary
+// 1. Vérification immédiate des variables d'environnement
+console.log("[Cloudinary Config] Initialisation du SDK...", {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "MANQUANT ❌",
+  api_key: process.env.CLOUDINARY_API_KEY ? "PRÉSENT ✅" : "MANQUANT ❌",
+  api_secret: process.env.CLOUDINARY_API_SECRET ? "PRÉSENT ✅" : "MANQUANT ❌",
+});
+
+// Configuration du SDK
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-/**
- * Crée un storage Cloudinary multer pour un dossier donné
- * @param {string} folder - Nom du dossier dans Cloudinary
- * @returns multer middleware
- */
-const createUploader = (folder) => {
-  const storage = new CloudinaryStorage({
-    cloudinary,
-    params: async (req, file) => ({
-      folder: `ceg/${folder}`,
-      // Optimisation automatique : format webp, qualité auto
-      allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
-      // Nom unique basé sur timestamp
-      public_id: `${folder}_${Date.now()}`,
-    }),
-  });
+cloudinary.api.ping()
+  .then(res => console.log("--- 🎉 CONNEXION CLOUDINARY VALIDE ! ---", res))
+  .catch(err => console.error("--- ❌ CLÉS CLOUDINARY INVALIDES ! ---", err.message));
 
-  return multer({
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // Max 10MB
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith("image/")) {
-        cb(null, true);
-      } else {
-        cb(new Error("Seules les images sont autorisées"), false);
-      }
-    },
+// 2. Définition du stockage en mémoire pour Multer
+const memoryStorage = multer.memoryStorage();
+const uploadMiddleware = multer({
+  storage: memoryStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Max 10MB
+  fileFilter: (req, file, cb) => {
+    console.log(
+      `[Multer Filter] Analyse du fichier : ${file.originalname} (${file.mimetype})`,
+    );
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      console.error(`[Multer Filter] Fichier refusé : ${file.mimetype}`);
+      cb(new Error("Seules les images sont autorisées"), false);
+    }
+  },
+});
+
+// 3. Fonction d'upload via Stream vers Cloudinary
+const uploadToCloudinaryStream = (fileBuffer, folder) => {
+  return new Promise((resolve, reject) => {
+    const publicId = `${folder}_${Date.now()}`;
+    console.log(`[Cloudinary Stream] Envoi vers le dossier : ceg/${folder}`);
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: `ceg/${folder}`,
+        public_id: publicId,
+      },
+      (error, result) => {
+        if (error) {
+          console.error("[Cloudinary Stream] ❌ ERREUR CLOUDINARY:", {
+            message: error.message,
+            http_code: error.http_code,
+          });
+          return reject(error);
+        }
+        console.log(
+          "[Cloudinary Stream] 🎉 UPLOAD RÉUSSI ! URL:",
+          result.secure_url,
+        );
+        resolve(result);
+      },
+    );
+
+    uploadStream.end(fileBuffer);
   });
 };
 
 /**
- * Supprime une image de Cloudinary par son public_id
- * @param {string} publicId - Public ID Cloudinary
+ * Factory qui imite l'objet multer pour ne pas casser ton fichier routes
  */
+const createSmartUploader = (folder) => {
+  return {
+    // On recrée la méthode .single() attendue par tes routes
+    single: (fieldName) => {
+      return [
+        uploadMiddleware.single(fieldName),
+        async (req, res, next) => {
+          if (!req.file) {
+            console.warn(
+              `[Uploader] Aucun fichier reçu dans le champ '${fieldName}' pour '${folder}'`,
+            );
+            return next();
+          }
+
+          try {
+            console.log(
+              `[Uploader] Traitement de ${req.file.originalname}. Envoi Cloudinary...`,
+            );
+            const cloudinaryResult = await uploadToCloudinaryStream(
+              req.file.buffer,
+              folder,
+            );
+
+            // Injection des variables attendues par tes controleurs
+            req.cloudinaryResult = cloudinaryResult;
+            req.file.path = cloudinaryResult.secure_url;
+            req.file.cloudinary_id = cloudinaryResult.public_id;
+
+            next();
+          } catch (error) {
+            res.status(error.http_code || 500).json({
+              error: "Erreur lors de l'upload vers Cloudinary",
+              details: error.message,
+            });
+          }
+        },
+      ];
+    },
+
+    // Fallback rapide pour la route gallery .array() si tu en as besoin
+    array: (fieldName, maxCount) => {
+      return [
+        uploadMiddleware.array(fieldName, maxCount),
+        async (req, res, next) => {
+          if (!req.files || req.files.length === 0) return next();
+          try {
+            console.log(
+              `[Uploader] Traitement de ${req.files.length} fichiers pour '${folder}'`,
+            );
+            // On mappe les promesses pour uploader en parallèle
+            const uploadPromises = req.files.map(async (file) => {
+              const result = await uploadToCloudinaryStream(
+                file.buffer,
+                folder,
+              );
+              file.path = result.secure_url;
+              file.cloudinary_id = result.public_id;
+              return result;
+            });
+            req.cloudinaryResults = await Promise.all(uploadPromises);
+            next();
+          } catch (error) {
+            res.status(error.http_code || 500).json({ error: error.message });
+          }
+        },
+      ];
+    },
+  };
+};
+
+// 4. Maintien de l'API originale pour tes routes
+const uploaders = {
+  news: createSmartUploader("news"),
+  projects: createSmartUploader("projects"),
+  gallery: createSmartUploader("gallery"),
+  partners: createSmartUploader("partners"),
+  testimonials: createSmartUploader("testimonials"),
+  domains: createSmartUploader("domains"),
+};
+
 const deleteImage = async (publicId) => {
   try {
-    await cloudinary.uploader.destroy(publicId);
+    return await cloudinary.uploader.destroy(publicId);
   } catch (error) {
-    console.error("Erreur suppression Cloudinary:", error);
+    console.error("[Cloudinary Delete] Erreur:", error);
   }
 };
 
-/**
- * Extrait le public_id depuis une URL Cloudinary
- * @param {string} url - URL Cloudinary complète
- * @returns {string} public_id
- */
 const extractPublicId = (url) => {
   if (!url) return null;
   const parts = url.split("/");
   const uploadIndex = parts.indexOf("upload");
   if (uploadIndex === -1) return null;
-  // Ignorer la version (v1234567890)
-  const relevantParts = parts.slice(uploadIndex + 2);
-  const filename = relevantParts.join("/");
-  return filename.replace(/\.[^/.]+$/, ""); // Supprimer l'extension
-};
-
-// Uploaders spécifiques par section
-const uploaders = {
-  news: createUploader("news"),
-  projects: createUploader("projects"),
-  gallery: createUploader("gallery"),
-  partners: createUploader("partners"),
-  testimonials: createUploader("testimonials"),
-  domains: createUploader("domains"),
+  return parts
+    .slice(uploadIndex + 2)
+    .join("/")
+    .replace(/\.[^/.]+$/, "");
 };
 
 module.exports = { cloudinary, uploaders, deleteImage, extractPublicId };

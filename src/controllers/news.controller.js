@@ -1,7 +1,7 @@
 // src/controllers/news.controller.js
 const News = require("../models/News");
 const asyncHandler = require("../middleware/asyncHandler");
-const { deleteImage } = require("../config/cloudinary");
+const { deleteImage, extractPublicId } = require("../config/cloudinary");
 
 const parseArray = (value) => {
   if (!value) return [];
@@ -54,7 +54,10 @@ const create = asyncHandler(async (req, res) => {
   };
 
   if (req.file) {
-    articleData.image = { url: req.file.path, publicId: req.file.filename };
+    articleData.image = {
+      url: req.file.path,
+      publicId: req.file.filename || extractPublicId(req.file.path),
+    };
   }
 
   const article = await News.create(articleData);
@@ -70,7 +73,10 @@ const update = asyncHandler(async (req, res) => {
 
   if (req.file) {
     if (article.image?.publicId) await deleteImage(article.image.publicId);
-    article.image = { url: req.file.path, publicId: req.file.filename };
+    article.image = {
+      url: req.file.path,
+      publicId: req.file.filename || extractPublicId(req.file.path),
+    };
   }
 
   if (title !== undefined) article.title = title;

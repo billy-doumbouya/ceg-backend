@@ -5,6 +5,14 @@ const { deleteImage } = require("../config/cloudinary");
 
 // ─── CATÉGORIES ─────────────────────────────────────────────────────────────
 
+function extractPublicIdFromUrl(url) {
+  if (!url) return `gallery_${Date.now()}`;
+  const parts = url.split("/");
+  const uploadIndex = parts.indexOf("upload");
+  if (uploadIndex === -1) return `gallery_${Date.now()}`;
+  const relevantParts = parts.slice(uploadIndex + 2); // ignore version
+  return relevantParts.join("/").replace(/\.[^/.]+$/, "");
+}
 /** GET /api/gallery/categories */
 const getCategories = asyncHandler(async (req, res) => {
   const categories = await GalleryCategory.find().sort({ order: 1, name: 1 });
@@ -21,13 +29,18 @@ const createCategory = asyncHandler(async (req, res) => {
   }
 
   const category = await GalleryCategory.create(catData);
-  res.status(201).json({ success: true, message: "Catégorie créée", data: category });
+  res
+    .status(201)
+    .json({ success: true, message: "Catégorie créée", data: category });
 });
 
 /** PUT /api/gallery/categories/:id — Admin */
 const updateCategory = asyncHandler(async (req, res) => {
   const category = await GalleryCategory.findById(req.params.id);
-  if (!category) return res.status(404).json({ success: false, message: "Catégorie non trouvée" });
+  if (!category)
+    return res
+      .status(404)
+      .json({ success: false, message: "Catégorie non trouvée" });
 
   const { name, description, order } = req.body;
 
@@ -47,7 +60,10 @@ const updateCategory = asyncHandler(async (req, res) => {
 /** DELETE /api/gallery/categories/:id — Admin */
 const deleteCategory = asyncHandler(async (req, res) => {
   const category = await GalleryCategory.findById(req.params.id);
-  if (!category) return res.status(404).json({ success: false, message: "Catégorie non trouvée" });
+  if (!category)
+    return res
+      .status(404)
+      .json({ success: false, message: "Catégorie non trouvée" });
 
   // Supprimer toutes les images de la catégorie
   const images = await GalleryImage.find({ category: req.params.id });
@@ -83,7 +99,12 @@ const getImages = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: images,
-    pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) },
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      pages: Math.ceil(total / limit),
+    },
   });
 });
 
@@ -105,23 +126,30 @@ const uploadImages = asyncHandler(async (req, res) => {
   const { category, caption, takenAt, order } = req.body;
 
   if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ success: false, message: "Aucune image fournie" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Aucune image fournie" });
   }
 
   const cat = await GalleryCategory.findById(category);
-  if (!cat) return res.status(404).json({ success: false, message: "Catégorie non trouvée" });
+  if (!cat)
+    return res
+      .status(404)
+      .json({ success: false, message: "Catégorie non trouvée" });
 
-  // Créer une entrée par image uploadée
   const images = await Promise.all(
-    req.files.map((file, index) =>
-      GalleryImage.create({
+    req.files.map((file, index) => {
+      // Extrait le public_id depuis l'URL Cloudinary si filename est undefined
+      const publicId = file.filename || extractPublicIdFromUrl(file.path);
+
+      return GalleryImage.create({
         category,
-        image: { url: file.path, publicId: file.filename },
+        image: { url: file.path, publicId },
         caption: caption || "",
         takenAt: takenAt || "",
         order: (Number(order) || 0) + index,
-      })
-    )
+      });
+    }),
   );
 
   res.status(201).json({
@@ -134,7 +162,10 @@ const uploadImages = asyncHandler(async (req, res) => {
 /** DELETE /api/gallery/images/:id — Admin */
 const deleteGalleryImage = asyncHandler(async (req, res) => {
   const image = await GalleryImage.findById(req.params.id);
-  if (!image) return res.status(404).json({ success: false, message: "Image non trouvée" });
+  if (!image)
+    return res
+      .status(404)
+      .json({ success: false, message: "Image non trouvée" });
 
   if (image.image?.publicId) await deleteImage(image.image.publicId);
   await image.deleteOne();
@@ -143,6 +174,12 @@ const deleteGalleryImage = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  getCategories, createCategory, updateCategory, deleteCategory,
-  getImages, getImagesAdmin, uploadImages, deleteGalleryImage,
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getImages,
+  getImagesAdmin,
+  uploadImages,
+  deleteGalleryImage,
 };
