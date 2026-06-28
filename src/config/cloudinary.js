@@ -22,9 +22,7 @@ const createUploader = (folder) => {
     cloudinary,
     params: async (req, file) => ({
       folder: `ceg/${folder}`,
-      upload_preset:process.env.CLOUDINARY_UPLOAD_PRESET || "ONG_CEG",
       // Optimisation automatique : format webp, qualité auto
-
       allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
       // Nom unique basé sur timestamp
       public_id: `${folder}_${Date.now()}`,
