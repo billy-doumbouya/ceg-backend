@@ -153,6 +153,7 @@ const uploaders = {
   partners: createSmartUploader("partners"),
   testimonials: createSmartUploader("testimonials"),
   domains: createSmartUploader("domains"),
+  backgrounds: createSmartUploader("backgrounds"), //
 };
 
 const deleteImage = async (publicId) => {

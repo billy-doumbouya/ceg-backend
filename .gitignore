@@ -82,3 +82,5 @@ env
 .env/
 .env.production.local
 createAdmin.js
+deletePageBackgrounds.js
+deletePageBackgrounds

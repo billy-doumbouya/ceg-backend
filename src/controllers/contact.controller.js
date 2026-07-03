@@ -1,32 +1,23 @@
 // src/controllers/contact.controller.js
-// Envoi d'email via Nodemailer
-
 const nodemailer = require("nodemailer");
+const ContactSubmission = require("../models/ContactSubmission");
 const asyncHandler = require("../middleware/asyncHandler");
 const logger = require("../utils/logger");
 
-// Création du transporteur email
 const createTransporter = () =>
   nodemailer.createTransport({
     host: process.env.MAIL_HOST,
     port: Number(process.env.MAIL_PORT),
-    secure: false, // TLS
+    secure: false,
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
   });
 
-/**
- * POST /api/contact
- * Envoie un email de contact
- */
-const sendContact = asyncHandler(async (req, res) => {
-  const { name, email, phone, subject, message } = req.body;
-
+const sendEmails = async ({ name, email, phone, subject, message }) => {
   const transporter = createTransporter();
 
-  // Email reçu par l'ONG
   await transporter.sendMail({
     from: process.env.MAIL_FROM,
     to: process.env.MAIL_TO,
@@ -55,7 +46,6 @@ const sendContact = asyncHandler(async (req, res) => {
     `,
   });
 
-  // Email de confirmation à l'expéditeur
   await transporter.sendMail({
     from: process.env.MAIL_FROM,
     to: email,
@@ -81,9 +71,69 @@ const sendContact = asyncHandler(async (req, res) => {
       </div>
     `,
   });
+};
 
-  logger.info(`Email de contact reçu de: ${email}`);
-  res.json({ success: true, message: "Message envoyé avec succès" });
+// POST /contact — public
+const sendContact = asyncHandler(async (req, res) => {
+  const { name, email, phone, subject, message } = req.body;
+
+  const [dbResult, emailResult] = await Promise.allSettled([
+    ContactSubmission.create({ name, email, phone, subject, message }),
+    sendEmails({ name, email, phone, subject, message }),
+  ]);
+
+  if (dbResult.status === "rejected") {
+    logger.error(`Échec sauvegarde contact DB: ${dbResult.reason?.message}`);
+  }
+  if (emailResult.status === "rejected") {
+    logger.error(`Échec envoi email contact: ${emailResult.reason?.message}`);
+  } else {
+    logger.info(`Email de contact envoyé à: ${email}`);
+  }
+
+  // Échec seulement si LES DEUX ont échoué — sinon le message est quelque part
+  if (dbResult.status === "rejected" && emailResult.status === "rejected") {
+    return res.status(500).json({
+      success: false,
+      message: "Le message n'a pas pu être traité. Veuillez réessayer.",
+    });
+  }
+
+  res.status(201).json({
+    success: true,
+    message: "Message envoyé avec succès",
+    data: dbResult.status === "fulfilled" ? dbResult.value : null,
+  });
 });
 
-module.exports = { sendContact };
+// GET /contact/admin — admin
+const getAllAdmin = asyncHandler(async (req, res) => {
+  const data = await ContactSubmission.find().sort({ createdAt: -1 });
+  res.json({ success: true, data });
+});
+
+// PATCH /contact/:id/read — admin
+const markAsRead = asyncHandler(async (req, res) => {
+  const item = await ContactSubmission.findByIdAndUpdate(
+    req.params.id,
+    { isRead: true },
+    { new: true },
+  );
+  if (!item)
+    return res
+      .status(404)
+      .json({ success: false, message: "Message introuvable" });
+  res.json({ success: true, data: item });
+});
+
+// DELETE /contact/:id — admin
+const remove = asyncHandler(async (req, res) => {
+  const item = await ContactSubmission.findByIdAndDelete(req.params.id);
+  if (!item)
+    return res
+      .status(404)
+      .json({ success: false, message: "Message introuvable" });
+  res.json({ success: true, message: "Message supprimé" });
+});
+
+module.exports = { sendContact, getAllAdmin, markAsRead, remove };

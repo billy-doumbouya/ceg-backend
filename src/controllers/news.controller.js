@@ -26,6 +26,9 @@ const getAll = asyncHandler(async (req, res) => {
     News.countDocuments(filter),
   ]);
 
+
+
+
   res.json({
     success: true,
     data: news,
