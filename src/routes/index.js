@@ -20,6 +20,7 @@ const timelineCtrl = require("../controllers/timeline.controller");
 const contactCtrl = require("../controllers/contact.controller");
 const donationsCtrl = require("../controllers/donations.controller"); // ← nouveau
 const backgroundsCtrl = require("../controllers/backgrounds.controller"); // ← nouveau
+const chatbotCtrl = require("../controllers/chatbotController"); // ← CHATBOT
 
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 router.post(
@@ -205,5 +206,13 @@ router.put(
   backgroundsCtrl.upsert,
 );
 router.delete("/backgrounds/:pageKey", requireAuth, backgroundsCtrl.remove);
+
+// ─── CHATBOT AI ──────────────────────────────────────────────────────────────
+router.post(
+  "/chatbot",
+  [body("history").isArray().withMessage("L'historique doit être un tableau")],
+  validate,
+  chatbotCtrl.handleChatbotMessage,
+);
 
 module.exports = router;
