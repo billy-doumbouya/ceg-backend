@@ -38,18 +38,33 @@ const galleryCategorySchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-galleryCategorySchema.pre("save", function (next) {
+// Génération automatique et sécurisée du slug
+galleryCategorySchema.pre("save", async function (next) {
   if (this.isModified("name") || !this.slug) {
-    this.slug = slugify(this.name, { lower: true, strict: true, locale: "fr" });
+    let baseSlug = slugify(this.name, {
+      lower: true,
+      strict: true,
+      locale: "fr",
+    });
+
+    let slug = baseSlug;
+    let count = 1;
+    while (
+      await mongoose
+        .model("GalleryCategory")
+        .findOne({ slug, _id: { $ne: this._id } })
+    ) {
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+    this.slug = slug;
   }
   next();
 });
 
 /**
  * Recalcule et persiste imageCount pour une catégorie donnée.
- * Source de vérité unique — appelée explicitement après chaque mutation
- * d'images plutôt que de dépendre de hooks Mongoose qui ne se déclenchent
- * pas dans tous les cas (ex: doc.deleteOne() vs Model.findOneAndDelete()).
+ * Source de vérité unique — appelée explicitement après chaque mutation d'images.
  */
 galleryCategorySchema.statics.recountImages = async function (categoryId) {
   if (!categoryId) return;

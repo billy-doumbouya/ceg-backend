@@ -3,7 +3,7 @@ const { GalleryCategory, GalleryImage } = require("../models/Gallery");
 const asyncHandler = require("../middleware/asyncHandler");
 const { deleteImage } = require("../config/cloudinary");
 
-// ─── CATÉGORIES ─────────────────────────────────────────────────────────────
+// ─── UTILS ───────────────────────────────────────────────────────────────────
 
 function extractPublicIdFromUrl(url) {
   if (!url) return `gallery_${Date.now()}`;
@@ -13,6 +13,8 @@ function extractPublicIdFromUrl(url) {
   const relevantParts = parts.slice(uploadIndex + 2); // ignore version
   return relevantParts.join("/").replace(/\.[^/.]+$/, "");
 }
+
+// ─── CATÉGORIES ─────────────────────────────────────────────────────────────
 
 /** GET /api/gallery/categories */
 const getCategories = asyncHandler(async (req, res) => {
@@ -66,12 +68,15 @@ const deleteCategory = asyncHandler(async (req, res) => {
       .status(404)
       .json({ success: false, message: "Catégorie non trouvée" });
 
-  // Supprimer toutes les images de la catégorie
+  // Supprimer toutes les images de la catégorie en parallèle
   const images = await GalleryImage.find({ category: req.params.id });
-  for (const img of images) {
-    if (img.image?.publicId) await deleteImage(img.image.publicId);
-    await img.deleteOne();
-  }
+
+  await Promise.all(
+    images.map(async (img) => {
+      if (img.image?.publicId) await deleteImage(img.image.publicId);
+      await img.deleteOne();
+    }),
+  );
 
   if (category.cover?.publicId) await deleteImage(category.cover.publicId);
   await category.deleteOne();
@@ -140,7 +145,6 @@ const uploadImages = asyncHandler(async (req, res) => {
 
   const images = await Promise.all(
     req.files.map((file, index) => {
-      // Extrait le public_id depuis l'URL Cloudinary si filename est undefined
       const publicId = file.filename || extractPublicIdFromUrl(file.path);
 
       return GalleryImage.create({
@@ -153,7 +157,7 @@ const uploadImages = asyncHandler(async (req, res) => {
     }),
   );
 
-  // Recalcul fiable du compteur — au lieu de dépendre des hooks du modèle
+  // Recalcul du compteur
   await GalleryCategory.recountImages(category);
 
   res.status(201).json({
@@ -163,7 +167,7 @@ const uploadImages = asyncHandler(async (req, res) => {
   });
 });
 
-/** PUT /api/gallery/images/:id — Admin (modifier légende, catégorie, ordre, statut, ou remplacer la photo) */
+/** PUT /api/gallery/images/:id — Admin */
 const updateGalleryImage = asyncHandler(async (req, res) => {
   const image = await GalleryImage.findById(req.params.id);
   if (!image)
@@ -174,7 +178,6 @@ const updateGalleryImage = asyncHandler(async (req, res) => {
   const { category, caption, takenAt, order, isPublished } = req.body;
   const oldCategoryId = image.category.toString();
 
-  // Si on change de catégorie, vérifier qu'elle existe
   if (category !== undefined && category !== oldCategoryId) {
     const cat = await GalleryCategory.findById(category);
     if (!cat)
@@ -184,7 +187,6 @@ const updateGalleryImage = asyncHandler(async (req, res) => {
     image.category = category;
   }
 
-  // Remplacement de la photo elle-même (nouveau fichier uploadé)
   if (req.file) {
     if (image.image?.publicId) await deleteImage(image.image.publicId);
     const publicId = req.file.filename || extractPublicIdFromUrl(req.file.path);
@@ -200,7 +202,6 @@ const updateGalleryImage = asyncHandler(async (req, res) => {
 
   await image.save();
 
-  // Recalcul du compteur si la catégorie a changé (ancienne ET nouvelle)
   if (category !== undefined && category !== oldCategoryId) {
     await GalleryCategory.recountImages(oldCategoryId);
     await GalleryCategory.recountImages(image.category);
@@ -231,7 +232,6 @@ const deleteGalleryImage = asyncHandler(async (req, res) => {
   if (image.image?.publicId) await deleteImage(image.image.publicId);
   await image.deleteOne();
 
-  // Recalcul fiable du compteur — c'est ce qui corrige ton bug du "1 au lieu de 0"
   await GalleryCategory.recountImages(categoryId);
 
   res.json({ success: true, message: "Image supprimée avec succès" });

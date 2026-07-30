@@ -32,9 +32,24 @@ const partnerSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-partnerSchema.pre("save", function (next) {
+// Génération automatique et vérification d'unicité du slug
+partnerSchema.pre("save", async function (next) {
   if (this.isModified("name") || !this.slug) {
-    this.slug = slugify(this.name, { lower: true, strict: true, locale: "fr" });
+    let baseSlug = slugify(this.name, {
+      lower: true,
+      strict: true,
+      locale: "fr",
+    });
+
+    let slug = baseSlug;
+    let count = 1;
+    while (
+      await mongoose.model("Partner").findOne({ slug, _id: { $ne: this._id } })
+    ) {
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+    this.slug = slug;
   }
   next();
 });

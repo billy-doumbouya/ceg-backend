@@ -20,12 +20,27 @@ const domainSchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     isPublished: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-domainSchema.pre("save", function (next) {
+// Génération automatique et vérification d'unicité du slug
+domainSchema.pre("save", async function (next) {
   if (this.isModified("title") || !this.slug) {
-    this.slug = slugify(this.title, { lower: true, strict: true, locale: "fr" });
+    let baseSlug = slugify(this.title, {
+      lower: true,
+      strict: true,
+      locale: "fr",
+    });
+
+    let slug = baseSlug;
+    let count = 1;
+    while (
+      await mongoose.model("Domain").findOne({ slug, _id: { $ne: this._id } })
+    ) {
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+    this.slug = slug;
   }
   next();
 });
