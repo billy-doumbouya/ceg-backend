@@ -4,7 +4,7 @@ const Project = require("../models/Project");
 const Domain = require("../models/Domain");
 const Partner = require("../models/Partner");
 const Statistic = require("../models/Statistic");
-const Testimony = require("../models/Testimony"); // Added
+const Testimony = require("../models/Testimonial"); // Added
 const Timeline = require("../models/Timeline"); // Added
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
